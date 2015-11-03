@@ -669,7 +669,7 @@ sysdig_init_res sysdig_init(int argc, char **argv)
 	string k8s_api;
 
 	// These variables are for the cycle_writer engine
-	int duration_seconds = 0;	
+	int duration_seconds = 0;
 	int rollover_mb = 0;
 	int file_limit = 0;
 	unsigned long event_limit = 0L;
@@ -1154,7 +1154,7 @@ sysdig_init_res sysdig_init(int argc, char **argv)
 
 		if(!k8s_api.empty())
 		{
-			inspector->init_k8s_client(k8s_api);			
+			inspector->init_k8s_client(k8s_api);
 		}
 		else
 		{

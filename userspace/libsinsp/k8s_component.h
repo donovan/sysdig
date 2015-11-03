@@ -10,6 +10,9 @@
 #include "json/json.h"
 #include "sinsp.h"
 #include "sinsp_int.h"
+#if defined(HAS_CAPTURE)
+#include "parsers.h"
+#endif // HAS_CAPTURE
 #include <vector>
 #include <map>
 #include <unordered_map>
