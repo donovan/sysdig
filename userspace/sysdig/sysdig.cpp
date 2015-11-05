@@ -1023,7 +1023,7 @@ sysdig_init_res sysdig_init(int argc, char **argv)
 			case 'z':
 				compress = true;
 				break;
-            // getopt_long : '?' for an ambiguous match or an extraneous parameter 
+			// getopt_long : '?' for an ambiguous match or an extraneous parameter 
 			case '?':
 				delete inspector;
 				return sysdig_init_res(EXIT_FAILURE);
@@ -1152,19 +1152,6 @@ sysdig_init_res sysdig_init(int argc, char **argv)
 			inspector->set_max_evt_output_len(80);
 		}
 
-		if(!k8s_api.empty())
-		{
-			inspector->init_k8s_client(k8s_api);
-		}
-		else
-		{
-			char* k8s_api_env = getenv("SYSDIG_K8S_API");
-			if(k8s_api_env != NULL)
-			{
-				inspector->init_k8s_client(k8s_api_env);
-			}
-		}
-
 		for(uint32_t j = 0; j < infiles.size() || infiles.size() == 0; j++)
 		{
 #ifdef HAS_FILTERING
@@ -1227,7 +1214,7 @@ sysdig_init_res sysdig_init(int argc, char **argv)
 
 					if(system("modprobe " PROBE_NAME " > /dev/null 2> /dev/null"))
 					{
-						fprintf(stderr, "Unable to load the driver\n");						
+						fprintf(stderr, "Unable to load the driver\n");
 					}
 
 					inspector->open("");
@@ -1257,6 +1244,22 @@ sysdig_init_res sysdig_init(int argc, char **argv)
 			{
 				inspector->setup_cycle_writer(outfile, rollover_mb, duration_seconds, file_limit, event_limit, compress);
 				inspector->autodump_next_file();
+			}
+
+			if(!inspector->has_k8s_client())
+			{
+				if(!k8s_api.empty())
+				{
+					inspector->init_k8s_client(k8s_api);
+				}
+				else
+				{
+					char* k8s_api_env = getenv("SYSDIG_K8S_API");
+					if(k8s_api_env != NULL)
+					{
+						inspector->init_k8s_client(k8s_api_env);
+					}
+				}
 			}
 
 			//

@@ -316,7 +316,7 @@ private:
 		m_info = &(m_event_info_table[m_pevt->type]);
 		m_tinfo = NULL;
 		m_fdinfo = NULL;
-		m_iosize = 0;		
+		m_iosize = 0;
 	}
 	inline void init(uint8_t* evdata, uint16_t cpuid)
 	{
@@ -327,7 +327,7 @@ private:
 		m_fdinfo = NULL;
 		m_iosize = 0;
 		m_cpuid = cpuid;
-		m_evtnum = 0;		
+		m_evtnum = 0;
 	}
 	inline void load_params()
 	{
@@ -390,6 +390,7 @@ VISIBILITY_PRIVATE
 	friend class sinsp_container_manager;
 	friend class sinsp_table;
 	friend class sinsp_cursesui;
+	friend class k8s_state_s;
 };
 
 /*@}*/

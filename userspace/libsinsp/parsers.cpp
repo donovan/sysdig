@@ -3429,25 +3429,13 @@ void sinsp_parser::parse_container_evt(sinsp_evt *evt)
 
 void sinsp_parser::parse_k8s_evt(sinsp_evt *evt)
 {
-	/*
-	sinsp_evt_param *parinfo;
-	sinsp_container_info container_info;
-
-	parinfo = evt->get_param(0);
-	container_info.m_id = parinfo->m_val;
-
-	parinfo = evt->get_param(1);
-	ASSERT(parinfo->m_len == sizeof(uint32_t));
-	container_info.m_type = (sinsp_container_type) *(uint32_t *)parinfo->m_val;
-
-	parinfo = evt->get_param(2);
-	container_info.m_name = parinfo->m_val;
-
-	parinfo = evt->get_param(3);
-	container_info.m_image = parinfo->m_val;
-
-	m_inspector->m_container_manager.add_container(container_info);
-	*/
+	g_logger.log(std::string(evt->get_name()) + " capture event", sinsp_logger::SEV_DEBUG);
+	sinsp_evt_param *parinfo = evt->get_param(0);
+	ASSERT(parinfo);
+	ASSERT(parinfo->m_len > 0);
+	g_logger.format(sinsp_logger::SEV_DEBUG, "param length: %d", parinfo->m_len);
+	std::string json(parinfo->m_val, parinfo->m_len);
+	g_logger.log(json, sinsp_logger::SEV_DEBUG);
 }
 
 void sinsp_parser::parse_cpu_hotplug_enter(sinsp_evt *evt)

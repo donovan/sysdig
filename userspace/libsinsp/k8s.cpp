@@ -51,13 +51,28 @@ const k8s_component::component_map k8s::m_components =
 k8s::k8s(const std::string& uri, bool start_watch, bool watch_in_thread, const std::string& api) :
 		m_watch(start_watch),
 		m_watch_in_thread(start_watch && watch_in_thread),
-		m_own_proto(true),
+		m_state(0),
 	#ifndef K8S_DISABLE_THREAD
 		m_dispatch(std::move(make_dispatch_map(m_state, m_mutex))),
 	#else
 		m_dispatch(std::move(make_dispatch_map(m_state))),
 	#endif
 		m_net(*this, uri, api)
+{
+	init(uri, m_watch_in_thread);
+}
+
+k8s::k8s(const std::string& uri, bool start_watch, sinsp* inspector, const std::string& api) :
+		m_watch(start_watch),
+		m_watch_in_thread(false),
+		m_state(inspector),
+		m_dispatch(std::move(make_dispatch_map(m_state))),
+		m_net(*this, uri, api)
+{
+	init(uri, m_watch_in_thread);
+}
+
+void k8s::init(const std::string& uri, bool watch_in_thread)
 {
 	if (uri.empty())
 	{
@@ -194,62 +209,92 @@ std::size_t k8s::count(k8s_component::type component) const
 	throw sinsp_exception(os.str());
 }
 
-void k8s::extract_data(const Json::Value& items, k8s_component::type component)
+void k8s::extract_data(Json::Value& items, k8s_component::type component, const std::string& api_version)
 {
 	if(items.isArray())
 	{
+		//k8s_state_s::event_preserve ep(m_state);
+		K8S_LOCK_GUARD_MUTEX;
 		for (auto& item : items)
 		{
-			Json::Value obj = item["metadata"];
-			if(obj.isObject())
+			if(api_version.empty())
 			{
-				K8S_LOCK_GUARD_MUTEX;
-				Json::Value ns = obj["namespace"];
+				throw sinsp_exception("API version not provided.");
+			}
+			item["apiVersion"] = api_version;
+			item["type"] = "ADDED";
+			Json::Value metadata = item["metadata"];
+
+			if(metadata.isObject() && !metadata.isNull())
+			{
+				Json::Value ns = metadata["namespace"];
 				std::string nspace;
 				if(!ns.isNull())
 				{
 					nspace = std::move(ns.asString());
 				}
-				m_state.add_common_single_value(component, obj["name"].asString(), obj["uid"].asString(), nspace);
+				m_state.add_common_single_value(component, metadata["name"].asString(), metadata["uid"].asString(), nspace);
 
-				Json::Value metadata = item["metadata"];
-				if(!metadata.isNull())
+				std::vector<k8s_pair_s> entries = k8s_component::extract_object(metadata, "labels");
+				if(entries.size() > 0)
 				{
-					std::vector<k8s_pair_s> entries = k8s_component::extract_object(metadata, "labels");
-					if(entries.size() > 0)
-					{
-						m_state.replace_items(component, "labels", std::move(entries));
-					}
-				}
-
-				Json::Value spec = item["spec"];
-				if(!spec.isNull())
-				{
-					std::vector<k8s_pair_s> entries = k8s_component::extract_object(spec, "selector");
-					if(entries.size() > 0)
-					{
-						m_state.replace_items(component, "selector", std::move(entries));
-					}
-				}
-
-				if(component == k8s_component::K8S_NODES)
-				{
-					std::vector<std::string> addresses = k8s_component::extract_nodes_addresses(item["status"]);
-					for (auto&& address : addresses)
-					{
-						m_state.add_last_node_ip(std::move(address));
-					}
-				}
-				else if(component == k8s_component::K8S_PODS)
-				{
-					k8s_pod_s& pod = m_state.get_pods().back();
-					m_state.update_pod(pod, item, true);
-				}
-				else if(component == k8s_component::K8S_SERVICES)
-				{
-					k8s_component::extract_services_data(item["spec"], m_state.get_services().back(), m_state.get_pods());
+					m_state.replace_items(component, "labels", std::move(entries));
 				}
 			}
+
+			Json::Value spec = item["spec"];
+			if(!spec.isNull())
+			{
+				std::vector<k8s_pair_s> entries = k8s_component::extract_object(spec, "selector");
+				if(entries.size() > 0)
+				{
+					m_state.replace_items(component, "selector", std::move(entries));
+				}
+			}
+
+			switch(component)
+			{
+			case k8s_component::K8S_NAMESPACES:
+				item["kind"] = "Namespace";
+			break;
+
+			case k8s_component::K8S_NODES:
+			{
+				item["kind"] = "Node";
+				std::vector<std::string> addresses = k8s_component::extract_nodes_addresses(item["status"]);
+				for (auto&& address : addresses)
+				{
+					m_state.add_last_node_ip(std::move(address));
+				}
+			}
+			break;
+
+			case k8s_component::K8S_PODS:
+			{
+				item["kind"] = "Pod";
+				k8s_pod_s& pod = m_state.get_pods().back();
+				m_state.update_pod(pod, item, true);
+			}
+			break;
+
+			case k8s_component::K8S_SERVICES:
+			{
+				item["kind"] = "Service";
+				k8s_component::extract_services_data(item["spec"], m_state.get_services().back(), m_state.get_pods());
+			}
+			break;
+
+			case k8s_component::K8S_REPLICATIONCONTROLLERS:
+				item["kind"] = "ReplicationController";
+			break;
+
+			default: break;
+			}
+
+			// rename "metadata" to "object" (to match watch format for capture)
+			item["object"] = item["metadata"];
+			item.removeMember("metadata");
+			m_state.capture(item);
 		}
 	}
 }
@@ -261,9 +306,11 @@ void k8s::parse_json(const std::string& json, const k8s_component::component_map
 	if(reader.parse(json, root, false))
 	{
 		Json::Value items = root["items"];
-		if(!root.isNull())
+		if(!items.isNull())
 		{
-			extract_data(items, component.first);
+			Json::Value api_version = root["apiVersion"];
+			std::string api_ver = api_version.isNull() ? std::string() : api_version.asString();
+			extract_data(items, component.first, api_ver);
 			//g_logger.log(root.toStyledString(), sinsp_logger::SEV_DEBUG);
 			{
 				K8S_LOCK_GUARD_MUTEX;

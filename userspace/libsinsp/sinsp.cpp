@@ -594,6 +594,7 @@ void sinsp::add_meta_event_and_repeat(sinsp_evt *metaevt)
 
 void schedule_next_threadinfo_evt(sinsp* _this, void* data)
 {
+	ASSERT(data != NULL);
 	sinsp_proc_metainfo* mei = (sinsp_proc_metainfo*)data;
 	ASSERT(mei->m_pli != NULL);
 
@@ -1435,7 +1436,7 @@ void sinsp::init_k8s_client(const string& api_server)
 	if(m_k8s_client == NULL)
 	{
 		g_logger.log("Fetching initial k8s state");
-		m_k8s_client = new k8s(api_server, true);
+		m_k8s_client = new k8s(api_server, true, this);
 	}
 }
 

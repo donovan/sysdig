@@ -87,7 +87,7 @@ bool k8s_dispatcher::is_ready(const std::string& msg)
 	return msg[msg.size() - 1] == '\n';
 }
 
-k8s_dispatcher::msg_data k8s_dispatcher::get_msg_data(const Json::Value& root)
+k8s_dispatcher::msg_data k8s_dispatcher::get_msg_data(Json::Value& root)
 {
 	msg_data data;
 	Json::Value evtype = root["type"];
@@ -107,6 +107,20 @@ k8s_dispatcher::msg_data k8s_dispatcher::get_msg_data(const Json::Value& root)
 		}
 	}
 	Json::Value object = root["object"];
+
+	// +++ begin reshuffle for capture (internal JSON tagging)
+	Json::Value kind = object["kind"];
+	if(!kind.isNull() && kind.isString())
+	{
+		root["kind"] = kind.asString();
+	}
+	Json::Value api_version = object["apiVersion"];
+	if(!api_version.isNull() && api_version.isString())
+	{
+		root["apiVersion"] = api_version.asString();
+	}
+	// --- end (internal JSON tagging)
+
 	if(!object.isNull() && object.isObject())
 	{
 		Json::Value meta = object["metadata"];
@@ -496,6 +510,8 @@ void k8s_dispatcher::handle_service(const Json::Value& root, const msg_data& dat
 
 void k8s_dispatcher::dispatch()
 {
+	//k8s_state_s::event_preserve ep(m_state); // push here, pop on return
+
 	for (list::iterator it = m_messages.begin(); it != m_messages.end();)
 	{
 		if(is_ready(*it))
@@ -545,6 +561,7 @@ void k8s_dispatcher::dispatch()
 					{
 						K8S_LOCK_GUARD_MUTEX;
 						m_state.update_cache(m_type);
+						//m_state.capture(root);
 					}
 				}
 			}
@@ -562,7 +579,7 @@ void k8s_dispatcher::dispatch()
 	}
 }
 
-std::string k8s_dispatcher::to_reason_desc(msg_reason reason)
+std::string k8s_dispatcher::to_reason_desc(k8s_msg_reason reason)
 {
 	switch (reason)
 	{
@@ -581,7 +598,7 @@ std::string k8s_dispatcher::to_reason_desc(msg_reason reason)
 	}
 }
 
-k8s_dispatcher::msg_reason k8s_dispatcher::to_reason(const std::string& desc)
+k8s_msg_reason k8s_dispatcher::to_reason(const std::string& desc)
 {
 	if(desc == "ADDED") { return COMPONENT_ADDED; }
 	else if(desc == "MODIFIED") { return COMPONENT_MODIFIED; }

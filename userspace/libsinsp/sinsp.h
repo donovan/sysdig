@@ -649,7 +649,10 @@ public:
 	double get_read_progress();
 
 	void init_k8s_client(const string& api_server);
-
+	bool has_k8s_client() const
+	{
+		return m_k8s_client != NULL;
+	}
 	//
 	// Misc internal stuff
 	//
@@ -858,7 +861,8 @@ private:
 	friend class sinsp_filter_check_fd;
 	friend class sinsp_filter_check_event;
 	friend class sinsp_filter_check_k8s;
-	
+	friend class k8s_state_s;
+
 	template<class TKey,class THash,class TCompare> friend class sinsp_connection_manager;
 };
 

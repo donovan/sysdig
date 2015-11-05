@@ -576,7 +576,7 @@ const unsigned    k8s_state_s::m_id_length = 12u;
 
 #endif // K8S_DISABLE_THREAD
 
-k8s_state_s::k8s_state_s()
+k8s_state_s::k8s_state_s(sinsp* inspector): m_inspector(inspector)
 {
 }
 
@@ -789,6 +789,50 @@ void k8s_state_s::clear(k8s_component::type type)
 	}
 }
 
+// state/capturing
+
+void k8s_state_s::capture(Json::Value& item)
+{
+	ASSERT(m_inspector);
+
+	std::string json = std::move(Json::FastWriter().write(item));
+	g_logger.format(sinsp_logger::SEV_DEBUG, "%d: %s", json.length(), json.c_str());
+
+	size_t evt_len = SP_EVT_BUF_SIZE;
+
+	size_t totlen = sizeof(scap_evt) + sizeof(uint16_t) + json.length() + 1;
+
+	if(totlen > evt_len)
+	{
+		ASSERT(false);
+		throw sinsp_exception("Invalid K8S namespace event lenght.");
+	}
+
+	sinsp_evt* evt = &m_inspector->m_meta_evt;
+
+	evt->m_cpuid = 0;
+	evt->m_evtnum = 0;
+
+	scap_evt* scapevt = evt->m_pevt;
+
+	scapevt->ts = m_inspector->m_lastevent_ts;
+	scapevt->tid = 0;
+	scapevt->len = (uint32_t)totlen;
+	scapevt->type = PPME_K8S_E;
+
+	uint16_t* lens = (uint16_t*)((char *)scapevt + sizeof(struct ppm_evt_hdr));
+	char* valptr = (char*)lens + 1 * sizeof(uint16_t);
+
+	lens[0] = (uint16_t)json.length() + 1;
+	memcpy(valptr, json.c_str(), lens[0]);
+	valptr += lens[0];
+
+	evt->init();
+	m_inspector->m_meta_evt_pending = true;
+	//m_inspector->add_meta_event(evt);
+}
+
+
 // state/caching
 
 void k8s_state_s::update_cache(const k8s_component::component_map::key_type& component)
@@ -815,6 +859,9 @@ void k8s_state_s::update_cache(const k8s_component::component_map::key_type& com
 				}
 			}
 		}
+		break;
+
+		case k8s_component::K8S_NODES:
 		break;
 
 		case k8s_component::K8S_PODS:

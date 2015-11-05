@@ -19,9 +19,14 @@ class k8s_dispatcher;
 class k8s
 {
 public:
-	k8s(const std::string& uri = "http://localhost:80",
+	k8s(const std::string& uri,
 		bool start_watch = false,
 		bool watch_in_thread = false,
+		const std::string& api = "/api/v1/");
+
+	k8s(const std::string& uri,
+		bool start_watch = false,
+		sinsp* inspector = 0,
 		const std::string& api = "/api/v1/");
 
 	~k8s();
@@ -41,7 +46,9 @@ public:
 	bool is_alive() const;
 
 private:
-	void extract_data(const Json::Value& items, k8s_component::type component);
+	void init(const std::string& uri, bool watch_in_thread = false);
+
+	void extract_data(Json::Value& items, k8s_component::type component, const std::string& api_version);
 
 	void build_state();
 
@@ -64,7 +71,6 @@ private:
 	K8S_DECLARE_MUTEX;
 	bool         m_watch;
 	bool         m_watch_in_thread;
-	bool         m_own_proto;
 	k8s_state_s  m_state;
 	dispatch_map m_dispatch;
 	k8s_net      m_net;

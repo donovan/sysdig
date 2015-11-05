@@ -17,6 +17,15 @@
 #include <map>
 #include <unordered_map>
 
+enum k8s_msg_reason
+{
+	COMPONENT_ADDED,
+	COMPONENT_MODIFIED,
+	COMPONENT_DELETED,
+	COMPONENT_ERROR,
+	COMPONENT_UNKNOWN // only to mark bad event messages
+};
+
 typedef std::pair<std::string, std::string> k8s_pair_s;
 typedef std::vector<k8s_pair_s>             k8s_pair_list;
 
@@ -354,7 +363,7 @@ public:
 	typedef std::unordered_multimap<std::string, const k8s_service_s*> pod_service_map;
 	typedef std::unordered_map<std::string, const k8s_rc_s*>           pod_rc_map;
 
-	k8s_state_s();
+	k8s_state_s(sinsp* inspector = 0);
 
 	//
 	// namespaces
@@ -534,7 +543,6 @@ public:
 #endif // K8S_DISABLE_THREAD
 
 private:
-
 	void update_cache(const k8s_component::component_map::key_type& component);
 
 #ifdef K8S_DISABLE_THREAD
@@ -606,6 +614,42 @@ private:
 	container_pod_map& get_container_pod_map() { return m_container_pods; }
 	pod_service_map& get_pod_service_map() { return m_pod_services; }
 	pod_rc_map& get_pod_rc_map() { return m_pod_rcs; }
+
+#ifdef HAS_CAPTURE
+	void push_event() { m_next_evt = &m_inspector->m_evt; }
+	void pop_event()
+	{
+		int32_t res = scap_next(m_inspector->m_h, &(m_next_evt->m_pevt), &(m_next_evt->m_cpuid));
+		if(res != SCAP_SUCCESS)
+		{
+			throw sinsp_exception(scap_getlasterr(m_inspector->m_h));
+		}
+		m_inspector->add_meta_event(m_next_evt);
+		m_inspector->m_meta_evt_pending = true;
+	}
+
+	struct event_preserve
+	{
+		event_preserve() = delete;
+
+		event_preserve(k8s_state_s& state) : m_state(state)
+		{
+			m_state.push_event();
+		}
+
+		~event_preserve()
+		{
+			m_state.pop_event();
+		}
+
+		k8s_state_s& m_state;
+	};
+
+	void capture(Json::Value& item);
+
+	sinsp*     m_inspector;
+	sinsp_evt* m_next_evt;
+#endif // HAS_CAPTURE
 
 	static const std::string m_prefix; // "docker://"
 	static const unsigned    m_id_length; // portion of the ID to be cached (=12)
