@@ -363,8 +363,11 @@ public:
 	typedef std::unordered_multimap<std::string, const k8s_service_s*> pod_service_map;
 	typedef std::unordered_map<std::string, const k8s_rc_s*>           pod_rc_map;
 
+#if defined(K8S_DISABLE_THREAD) && defined(HAS_CAPTURE)
 	k8s_state_s(sinsp* inspector = 0);
-
+#else
+	k8s_state_s();
+#endif // K8S_DISABLE_THREAD && HAS_CAPTURE
 	//
 	// namespaces
 	//

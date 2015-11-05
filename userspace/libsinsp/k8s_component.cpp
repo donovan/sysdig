@@ -576,9 +576,11 @@ const unsigned    k8s_state_s::m_id_length = 12u;
 
 #endif // K8S_DISABLE_THREAD
 
-k8s_state_s::k8s_state_s(sinsp* inspector): m_inspector(inspector)
-{
-}
+#if defined(K8S_DISABLE_THREAD) && defined(HAS_CAPTURE)
+k8s_state_s::k8s_state_s(sinsp* inspector): m_inspector(inspector) { }
+#else
+k8s_state_s::k8s_state_s() { }
+#endif // K8S_DISABLE_THREAD && HAS_CAPTURE
 
 // state/pods
 
