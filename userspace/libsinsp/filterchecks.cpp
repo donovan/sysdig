@@ -3962,7 +3962,7 @@ uint8_t* sinsp_filter_check_reference::extract(sinsp_evt *evt, OUT uint32_t* len
 
 //
 // convert a number into a byte representation.
-// E.g. 1230 becomes 1.23K
+// note that val is in kbytes so 1230 becomes 1.23M
 //
 char* sinsp_filter_check_reference::format_bytes(double val, uint32_t str_len, bool is_int)
 {
@@ -3981,37 +3981,37 @@ char* sinsp_filter_check_reference::format_bytes(double val, uint32_t str_len, b
 	{
 		snprintf(m_getpropertystr_storage,
 					sizeof(m_getpropertystr_storage),
-					pr_fmt, str_len - 1, (val) / (1024LL * 1024 * 1024 * 1024 * 1024), 'P');
+					pr_fmt, str_len - 1, (val) / (1024LL * 1024 * 1024 * 1024 * 1024), 'E');
 	}
 	else if(val > (1024LL * 1024 * 1024 * 1024))
 	{
 		snprintf(m_getpropertystr_storage,
 					sizeof(m_getpropertystr_storage),
-					pr_fmt, str_len - 1, (val) / (1024LL * 1024 * 1024 * 1024), 'T');
+					pr_fmt, str_len - 1, (val) / (1024LL * 1024 * 1024 * 1024), 'P');
 	}
 	else if(val > (1024LL * 1024 * 1024))
 	{
 		snprintf(m_getpropertystr_storage,
 					sizeof(m_getpropertystr_storage),
-					pr_fmt, str_len - 1, (val) / (1024LL * 1024 * 1024), 'G');
+					pr_fmt, str_len - 1, (val) / (1024LL * 1024 * 1024), 'T');
 	}
 	else if(val > (1024 * 1024))
 	{
 		snprintf(m_getpropertystr_storage,
 					sizeof(m_getpropertystr_storage),
-					pr_fmt, str_len - 1, (val) / (1024 * 1024), 'M');
+					pr_fmt, str_len - 1, (val) / (1024 * 1024), 'G');
 	}
 	else if(val > 1024)
 	{
 		snprintf(m_getpropertystr_storage,
 					sizeof(m_getpropertystr_storage),
-					pr_fmt, str_len - 1, (val) / (1024), 'K');
+					pr_fmt, str_len - 1, (val) / (1024), 'M');
 	}
 	else
 	{
 		snprintf(m_getpropertystr_storage,
 					sizeof(m_getpropertystr_storage),
-					pr_fmt, str_len, val, 0);
+					pr_fmt, str_len, val, 'K');
 	}
 
 	uint32_t len = (uint32_t)strlen(m_getpropertystr_storage);
